@@ -1,0 +1,92 @@
+# ============================================================
+# Wavelet-YOLO-GAT Pipeline Configuration
+# ============================================================
+
+# --- Paths (Kaggle) ---
+paths:
+  # VinBigData dataset (attached as Kaggle dataset)
+  kaggle_dataset: "/kaggle/input/vinbigdata-chest-xray-abnormalities-detection"
+  train_csv: "/kaggle/input/vinbigdata-chest-xray-abnormalities-detection/train.csv"
+  train_dicom: "/kaggle/input/vinbigdata-chest-xray-abnormalities-detection/train"
+  test_dicom: "/kaggle/input/vinbigdata-chest-xray-abnormalities-detection/test"
+
+  # Outputs (Kaggle working directory)
+  processed_images: "/kaggle/working/processed/images"
+  yolo_dataset: "/kaggle/working/yolo_dataset"
+  yolo_weights: "/kaggle/working/outputs/yolo_weights"
+  yolo_detections: "/kaggle/working/outputs/yolo_detections"
+  graphs: "/kaggle/working/outputs/graphs"
+  gat_weights: "/kaggle/working/outputs/gat_weights"
+  results: "/kaggle/working/outputs/results"
+
+# --- Preprocessing ---
+preprocessing:
+  image_size: 640
+  clahe:
+    clip_limit: 2.0
+    tile_grid_size: [8, 8]
+
+# --- Wavelet Enhancement ---
+wavelet:
+  family: "db2"            # Options: haar, db2, db4, sym2
+  level: 1                 # Decomposition level
+  detail_boost: 1.5        # Multiplier for LH and HL sub-bands
+  hh_boost: 1.2            # Multiplier for HH sub-band (optional noise)
+
+# --- Annotation Consensus ---
+annotations:
+  strategy: "majority_vote" # Options: union, majority_vote, single_rad
+  iou_threshold: 0.5       # For majority_vote: min IoU to consider agreement
+
+# --- YOLO ---
+yolo:
+  model: "yolov8s.pt"      # Pretrained model: yolov8s (small), yolov8n (nano)
+  epochs: 100
+  batch_size: 16
+  image_size: 640
+  cos_lr: true
+  patience: 25
+  confidence_threshold: 0.15  # Lower threshold → more detections → richer graphs
+  iou_threshold: 0.45
+  num_classes: 14
+  class_names:
+    - "Aortic enlargement"
+    - "Atelectasis"
+    - "Calcification"
+    - "Cardiomegaly"
+    - "Consolidation"
+    - "ILD"
+    - "Infiltration"
+    - "Lung Opacity"
+    - "Nodule/Mass"
+    - "Other lesion"
+    - "Pleural effusion"
+    - "Pleural thickening"
+    - "Pneumothorax"
+    - "Pulmonary fibrosis"
+
+# --- Data Split ---
+split:
+  val_ratio: 0.2
+  random_seed: 42
+
+# --- Graph Construction ---
+graph:
+  distance_threshold: 0.3  # Fraction of image_size; connect nodes within this distance
+  iou_edge_threshold: 0.0  # Connect nodes with IoU > this value
+  node_feature_dim: 22     # 2(cx,cy) + 2(w,h) + 1(area) + 1(aspect) + 1(intensity) + 1(confidence) + 14(class_onehot)
+  self_loop: true           # Add self-loop for single-node graphs
+
+# --- GAT ---
+gat:
+  input_dim: 22
+  hidden_dim: 64
+  num_heads: 8
+  num_layers: 2
+  num_classes: 15           # 14 diseases + normal
+  dropout: 0.3
+  learning_rate: 0.001
+  weight_decay: 0.0005
+  epochs: 100
+  batch_size: 32
+  patience: 15              # Early stopping patience
